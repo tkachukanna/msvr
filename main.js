@@ -40,7 +40,7 @@ function draw() {
 
     shProgram.Use();
 
-    let modelView = spaceball.getViewMatrix();
+    let modelView = getIsGyroActive() ? getGyroRotationMatrix() : spaceball.getViewMatrix();
 
     let rotateToPointZero = m4.axisRotation([0.707, 0.707, 0], 0.7);
     let translateToPointZero = m4.translation(0, 0, -10);
@@ -48,8 +48,7 @@ function draw() {
     const colorPolygon = new Float32Array([0.5, 0.5, 0.5, 1]);
     const colorEdge    = new Float32Array([1, 1, 1, 1]);
 
-    // The FIRST PASS (for the left eye)
-
+    // FIRST PASS (for the left eye)
     let matrLeftFrustum = stereoCam.calcLeftFrustum();
     gl.uniformMatrix4fv(shProgram.iProjectionMatrix, false, matrLeftFrustum);
 
@@ -70,8 +69,7 @@ function draw() {
     gl.uniform4fv(shProgram.iColor, colorEdge);
     surface.drawWireframe(shProgram);
 
-    // The SECOND PASS (for the right eye)
-    
+    // SECOND PASS (for the right eye)
     gl.clear(gl.DEPTH_BUFFER_BIT);
 
     let matrRightFrustum = stereoCam.calcRightFrustum();
@@ -140,6 +138,7 @@ function createProgram(gl, vShader, fShader) {
     let vsh = gl.createShader(gl.VERTEX_SHADER);
     gl.shaderSource(vsh, vShader);
     gl.compileShader(vsh);
+
     if (!gl.getShaderParameter(vsh, gl.COMPILE_STATUS)) {
         throw new Error("Error in vertex shader: " + gl.getShaderInfoLog(vsh));
     }
@@ -147,6 +146,7 @@ function createProgram(gl, vShader, fShader) {
     let fsh = gl.createShader(gl.FRAGMENT_SHADER);
     gl.shaderSource(fsh, fShader);
     gl.compileShader(fsh);
+
     if (!gl.getShaderParameter(fsh, gl.COMPILE_STATUS)) {
         throw new Error("Error in fragment shader: " + gl.getShaderInfoLog(fsh));
     }
@@ -155,6 +155,7 @@ function createProgram(gl, vShader, fShader) {
     gl.attachShader(prog, vsh);
     gl.attachShader(prog, fsh);
     gl.linkProgram(prog);
+
     if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
         throw new Error("Link error in program: " + gl.getProgramInfoLog(prog));
     }
@@ -199,6 +200,11 @@ function init() {
         stereoCam.convergence = parseFloat(this.value);
     });
 
+    document.getElementById("connectBtn").addEventListener("click", function() {
+        const ip = document.getElementById("serverIP").value;
+        connectToSensorServer(ip);
+    });
+
     video = document.createElement('video');
     video.autoplay = true;
     video.muted = true;
@@ -222,5 +228,4 @@ function init() {
     requestAnimationFrame(draw);
 
     spaceball = new TrackballRotator(canvas, draw, 0);
-    draw();
 }
