@@ -1,66 +1,10 @@
 body {
-    background-color: #EEEEEE;
-}
-.wrapper {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-.surface-content {
-    display: flex;
-    justify-content: space-between;
-    gap: 50px;
-    align-items: center;
-}
-.parameters {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-.parameters-item {
-    display: flex;
-    align-items: center;
-}
-.parameters-item label {
-    padding-right: 20px;
-    font-size: 18px;
-}
-.parameters-item input {
-    width: 200px;
-}
-.parameters-item p {
-    padding-left: 10px;
-}
-.input-text {
-    box-sizing: border-box;
-    font-size: 18px;
-    height: 30px;
-}
-
-.button-item {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-.button {
-    width: 200px;
-    height: 30px;
-    font-weight: bold;
-    background-color: white;
-    border: 1px solid black;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: all .5s;
-}
-
-.button:hover {
-    background-color: rgb(232, 232, 232);
-}
-
-.button-hint {
     margin: 0;
-    font-style: italic;
-    color: red;
+    overflow: hidden;
+}
+
+canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
 }

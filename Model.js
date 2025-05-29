@@ -1,66 +1,14 @@
 class Model {
-    constructor(gl, uSteps, vSteps, L, T, B) {
-        this.gl = gl;
+    constructor(uSteps, vSteps, L, T, B) {
         this.uSteps = uSteps;
         this.vSteps = vSteps;
         this.L = L; 
         this.T = T;
         this.B = B; 
 
-        this.uMin = 0.0;
-        this.uMax = 1.0;
-        this.vMin = -0.3;
-        this.vMax = 1.0;
-
-        this.uLinesPlus = [];
-        this.uLinesMinus = [];
-        this.vLinesPlus = [];
-        this.vLinesMinus = [];
-        this.generateWireframeData();
-
         let filledData = this.generateFilledSurfaceData();
         this.vertices = filledData.vertices;
         this.indices = filledData.indices;
-        this.count = this.indices.length;
-
-        this.vertexBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, this.vertices, gl.STATIC_DRAW);
-        this.indexBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.indices, gl.STATIC_DRAW);
-    }
-
-    generateWireframeData() {
-        for (let j = 0; j <= this.vSteps; j++) {
-            let vVal = this.vMin + (this.vMax - this.vMin) * (j / this.vSteps);
-            let oneULinePlus = [];
-            let oneULineMinus = [];
-            for (let i = 0; i <= this.uSteps; i++) {
-                let uVal = this.uMin + (this.uMax - this.uMin) * (i / this.uSteps);
-                let vertPlus = this.calculateVertex(uVal, vVal, +1);
-                let vertMinus = this.calculateVertex(uVal, vVal, -1);
-                oneULinePlus.push(...vertPlus);
-                oneULineMinus.push(...vertMinus);
-            }
-            this.uLinesPlus.push(oneULinePlus);
-            this.uLinesMinus.push(oneULineMinus);
-        }
-
-        for (let i = 0; i <= this.uSteps; i++) {
-            let uVal = this.uMin + (this.uMax - this.uMin) * (i / this.uSteps);
-            let oneVLinePlus = [];
-            let oneVLineMinus = [];
-            for (let j = 0; j <= this.vSteps; j++) {
-                let vVal = this.vMin + (this.vMax - this.vMin) * (j / this.vSteps);
-                let vertPlus = this.calculateVertex(uVal, vVal, +1);
-                let vertMinus = this.calculateVertex(uVal, vVal, -1);
-                oneVLinePlus.push(...vertPlus);
-                oneVLineMinus.push(...vertMinus);
-            }
-            this.vLinesPlus.push(oneVLinePlus);
-            this.vLinesMinus.push(oneVLineMinus);
-        }
     }
 
     calculateVertex(u, v, sign) {
@@ -75,67 +23,68 @@ class Model {
         let verticesMinus = [];
         let indicesPlus = [];
         let indicesMinus = [];
+        const cols = this.uSteps + 1;
 
         for (let j = 0; j <= this.vSteps; j++) {
-            let v = this.vMin + (this.vMax - this.vMin) * (j / this.vSteps);
+            const v = j / this.vSteps;
             for (let i = 0; i <= this.uSteps; i++) {
-                let u = this.uMin + (this.uMax - this.uMin) * (i / this.uSteps);
-                let vert = this.calculateVertex(u, v, +1);
-                verticesPlus.push(...vert);
-            }
-        }
-
-        for (let j = 0; j <= this.vSteps; j++) {
-            let v = this.vMin + (this.vMax - this.vMin) * (j / this.vSteps);
-            for (let i = 0; i <= this.uSteps; i++) {
-                let u = this.uMin + (this.uMax - this.uMin) * (i / this.uSteps);
-                let vert = this.calculateVertex(u, v, -1);
-                verticesMinus.push(...vert);
+                const u = i / this.uSteps;
+                verticesPlus.push(...this.calculateVertex(u, v, +1));
+                verticesMinus.push(...this.calculateVertex(u, v, -1));
             }
         }
 
         for (let j = 0; j < this.vSteps; j++) {
             for (let i = 0; i < this.uSteps; i++) {
-                let index = j * (this.uSteps + 1) + i;
-                indicesPlus.push(index, index + 1, index + this.uSteps + 1);
-                indicesPlus.push(index + 1, index + this.uSteps + 2, index + this.uSteps + 1);
+                const b = j * cols + i;
+                indicesPlus.push(b, b + 1, b + cols, b + 1, b + cols + 1, b + cols);
             }
         }
 
-        let offset = (this.uSteps + 1) * (this.vSteps + 1);
+        const offset = cols * (this.vSteps + 1);
         for (let j = 0; j < this.vSteps; j++) {
             for (let i = 0; i < this.uSteps; i++) {
-                let index = j * (this.uSteps + 1) + i + offset;
-                indicesMinus.push(index, index + this.uSteps + 1, index + 1);
-                indicesMinus.push(index + 1, index + this.uSteps + 1, index + this.uSteps + 2);
+                const b = j * cols + i + offset;
+                indicesMinus.push(b, b + cols, b + 1, b + 1, b + cols, b + cols + 1);
             }
         }
 
-        let vertices = verticesPlus.concat(verticesMinus);
-        let indices = indicesPlus.concat(indicesMinus);
         return {
-            vertices: new Float32Array(vertices),
-            indices: new Uint16Array(indices)
+            vertices: new Float32Array(verticesPlus.concat(verticesMinus)),
+            indices:  new Uint16Array(indicesPlus.concat(indicesMinus))
         };
     }
 
-    draw() {
-        const gl = this.gl;
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
-        gl.vertexAttribPointer(shProgram.iAttribVertex, 3, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(shProgram.iAttribVertex);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
-        gl.drawElements(gl.TRIANGLES, this.count, gl.UNSIGNED_SHORT, 0);
+
+    createThreeJsMesh(color = 0x44ff44) {
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(this.vertices, 3));
+        geo.setIndex(new THREE.BufferAttribute(this.indices, 1));
+
+        const bbox = new THREE.Box3().setFromBufferAttribute(geo.attributes.position);
+        const center = bbox.getCenter(new THREE.Vector3());
+        geo.translate(-center.x, -center.y, -center.z);
+
+        geo.computeVertexNormals();
+
+        return new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+        color: color,
+        side: THREE.DoubleSide
+        }));
     }
 
-    drawWireframe(shaderProgram) {
-        const gl = this.gl;
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
-        gl.vertexAttribPointer(shaderProgram.iAttribVertex, 3, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(shaderProgram.iAttribVertex);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
-        for (let i = 0; i < this.count; i += 3) {
-            gl.drawElements(gl.LINE_LOOP, 3, gl.UNSIGNED_SHORT, i * 2);
-        }
+    createBoundingCube(color = 0xff0000, opacity = 0.3) {
+        const attr = new THREE.BufferAttribute(this.vertices, 3);
+        const bbox = new THREE.Box3().setFromBufferAttribute(attr);
+        const size = bbox.getSize(new THREE.Vector3());
+
+        const cubeGeo = new THREE.BoxGeometry(size.x, size.y, size.z);
+        const cubeMat = new THREE.MeshBasicMaterial({
+            color: color,
+            transparent: true,
+            opacity: opacity,
+            side: THREE.DoubleSide
+        });
+        return new THREE.Mesh(cubeGeo, cubeMat);
     }
 }
