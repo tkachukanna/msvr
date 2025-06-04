@@ -1,59 +1,102 @@
 'use strict';
 
-function init() {
-    const renderer = new THREE.WebGLRenderer({antialias:true,alpha:true});
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
 
-    const scene  = new THREE.Scene();
+    const renderer = new THREE.WebGLRenderer({
+		alpha: true
+	});
+    renderer.setClearColor(new THREE.Color('lightgrey'), 0);
+	renderer.setSize(window.innerWidth, window.innerHeight);
+	renderer.domElement.style.position = 'absolute';
+	renderer.domElement.style.top = '0px';
+	renderer.domElement.style.left = '0px';
+	document.body.appendChild(renderer.domElement);
+
+    const onRenderFcts = [];
+    const scene = new THREE.Scene();
     const camera = new THREE.Camera();
-    scene.add(camera);
+	scene.add(camera);
 
-    const arSource = new THREEx.ArToolkitSource({ sourceType:'webcam' });
-    arSource.init(() => resize());
-    window.addEventListener('resize', resize);
-    function resize(){
-        arSource.onResizeElement();
-        arSource.copyElementSizeTo(renderer.domElement);
-        if(arContext.arController) arSource.copyElementSizeTo(arContext.arController.canvas);
-    }
+    const arSource = new THREEx.ArToolkitSource({
+		sourceType: 'webcam',
+	});
+    arSource.init(function onReady() {
+		onResize()
+	});
+    window.addEventListener('resize', function () {
+		onResize()
+	});
+
+    function onResize() {
+		arSource.onResizeElement();
+		arSource.copyElementSizeTo(renderer.domElement);
+		if (arContext.arController !== null) {
+			arSource.copyElementSizeTo(arContext.arController.canvas);
+		}
+	}
 
     const arContext = new THREEx.ArToolkitContext({
-        detectionMode: 'mono',
-        cameraParametersUrl: 'https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.7/data/data/camera_para.dat',
-        maxDetectionRate: 30
-    });
-    arContext.init(() => camera.projectionMatrix.copy(arContext.getProjectionMatrix()));
+		cameraParametersUrl: 'markers/camera_para.dat',
+		detectionMode: 'mono',
+		maxDetectionRate: 30,
+		canvasWidth: 80 * 3,
+		canvasHeight: 60 * 3
+	})
+    arContext.init(function onCompleted() {
+		camera.projectionMatrix.copy(arContext.getProjectionMatrix());
+	})
 
-    const markerRoot = new THREE.Group();
-    scene.add(markerRoot);
-    new THREEx.ArMarkerControls(arContext, markerRoot, {
-        type: 'pattern',
-        patternUrl: 'markers/marker.patt',
-        changeMatrixMode: 'modelViewMatrix'
-    });
+    onRenderFcts.push(function () {
+		if (arSource.ready === false) return;
+		arContext.update(arSource.domElement);
+	})
 
-    
-    const L = 4.0;     
-    const T = 2.0;     
-    const B = 0.5;     
+    const markerRoot = new THREE.Group;
+	scene.add(markerRoot);
+	const artoolkitMarker = new THREEx.ArMarkerControls(arContext, markerRoot, {
+		type: 'pattern',
+		patternUrl: 'markers/marker.patt'
+	});
+		
+	const smoothedRoot = new THREE.Group();
+	scene.add(smoothedRoot);
+	
+    const smoothedControls = new THREEx.ArSmoothedControls(smoothedRoot, {
+		lerpPosition: 0.4,
+		lerpQuaternion: 0.3,
+		lerpScale: 1
+	});
+	onRenderFcts.push(function (delta) {
+		smoothedControls.update(markerRoot)
+	});
 
-    const uSteps = 50;
-    const vSteps = 50;
+    const arWorldRoot = smoothedRoot;
+	const geometry = new THREE.BoxGeometry(1, 0.1, 1);
+	const material = new THREE.MeshNormalMaterial({
+		transparent: true,
+		opacity: 0.25,
+		side: THREE.DoubleSide
+	});
+	const mesh = new THREE.Mesh(geometry, material);
+	mesh.position.y = geometry.parameters.height / 2;
+	arWorldRoot.add(mesh);
+	
+    loadSurface();
 
-    const model = new Model(uSteps, vSteps, L, T, B);
-    const coneMesh = model.createThreeJsMesh(0x44ff44);
-    const cubeMesh = model.createBoundingCube(0xff0000, 0.3);
+    const stats = new Stats();
+	document.body.appendChild(stats.dom);
+		
+	onRenderFcts.push(function () {
+		renderer.render(scene, camera);
+		stats.update();
+	})
 
-    coneMesh.scale.set(0.5, 0.5, 0.5);
-    cubeMesh.scale.set(0.5, 0.5, 0.5);
-
-    markerRoot.add(coneMesh, cubeMesh);
-
-    (function render(){
-        requestAnimationFrame(render);
-        if(!arSource.ready) return;
-        arContext.update(arSource.domElement);
-        renderer.render(scene, camera);
-    })();
-}
+	let lastTimeMsec = null
+	requestAnimationFrame(function animate(nowMsec) {
+        requestAnimationFrame(animate);
+		lastTimeMsec = lastTimeMsec || nowMsec - 1000 / 60;
+		const deltaMsec = Math.min(200, nowMsec - lastTimeMsec);
+		lastTimeMsec = nowMsec;
+		onRenderFcts.forEach(function (onRenderFct) {
+			onRenderFct(deltaMsec / 1000, nowMsec / 1000)
+		})
+	});
